@@ -77,13 +77,6 @@ int main(int argc, char* argv[])
 	WAVEFORMATEX wfx; /* look this up in your documentation */
 	char buffer[1024]; /* intermediate buffer for reading */
 	int i;
-	/*
-	 * quick argument check
-	 */
-	/*if(argc != 2) {
-		fprintf(stderr, "usage: %s <filename>\n", argv[0]);
-		ExitProcess(1);
-	}*/
 	
 	const int buf_size = SAMPLE_RATE*4;
 
@@ -96,15 +89,18 @@ int main(int argc, char* argv[])
 	for (int i = 0; i < buf_size; i++) {
 		if (i >= bass[curr_note+1].first) curr_note++;
 		//wave_buffer[i] = 0.5*square_wave(notes[curr_note].second,i) + 0.5*square_wave(notes2[curr_note].second,i);
-		wave_buffer[i] = (inst_trance(bass[curr_note].second, 4, i) * (gate(2,i) ? gate(8,i) : 1) +
+		/*wave_buffer[i] = (inst_trance(bass[curr_note].second, 4, i) * (gate(2,i) ? gate(8,i) : 1) +
 			              inst_bass(bass[curr_note].second, i) +
-						  white_wave(0,i) * (gate(8,i) & gate(16,i))) / 2.5;
+						  white_wave(0,i) * (gate(8,i) & gate(16,i))) / 2.5;*/
+		float freq = get_freq(bass[curr_note].second,0,4);
+		int t = i%SAMPLE_RATE+10000;
+		wave_buffer[i] = sine_wave(freq+(sine_wave(3*freq+(sine_wave(1.25*freq, t)/float(MAX_AMP)), t)/float(MAX_AMP)), t);
 	}
 
-	for (int i = 0; i < buf_size; i++) {
+	/*for (int i = 0; i < buf_size; i++) {
 		if (i < 2) continue;
-		else wave_buffer[i] = low_pass(wave_buffer[i], wave_buffer[i-1], 0.5);//i%29400/29400.0*0.4);//((i < 88200) ? sqrtf(abs(88200-i)/88200.0) : powf((i-88200)/88200.0,2)) * 0.5 + 0.001);
-	}
+		else wave_buffer[i] = low_pass(wave_buffer[i], wave_buffer[i-1], ((i < 88200) ? sqrtf(abs(88200-i)/88200.0) : powf((i-88200)/88200.0,2))) + 0.01;
+	}*/
 
 	write_wav("temp.wav", buf_size, wave_buffer, SAMPLE_RATE);
 	
