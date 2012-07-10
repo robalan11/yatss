@@ -94,7 +94,7 @@ int main(int argc, char* argv[])
 						  white_wave(0,i) * (gate(8,i) & gate(16,i))) / 2.5;*/
 		float freq = get_freq(bass[curr_note].second,0,4);
 		int t = i%SAMPLE_RATE+10000;
-		wave_buffer[i] = sine_wave(freq+(sine_wave(3*freq+(sine_wave(1.25*freq, t)/float(MAX_AMP)), t)/float(MAX_AMP)), t);
+		wave_buffer[i] = sine_wave(freq+(sine_wave(3*freq+(sine_wave(1.25*freq, t)/float(MAX_AMP)), t)/float(MAX_AMP)), t) * (gate(2,i) ? gate(8,i) : 1);
 	}
 
 	/*for (int i = 0; i < buf_size; i++) {
