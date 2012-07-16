@@ -7,6 +7,8 @@
 #include <utility>
 
 #include "definitions.h"
+#include "filter.h"
+#include "instrument.h"
 #include "song.h"
 #include "sounds.h"
 /*
@@ -80,6 +82,7 @@ int main(int argc, char* argv[])
 	
 	const int buf_size = SAMPLE_RATE*4;
 
+	short int in_buffer[buf_size];
 	short int wave_buffer[buf_size];
 
 	init_song(buf_size);
@@ -92,15 +95,15 @@ int main(int argc, char* argv[])
 		/*wave_buffer[i] = (inst_trance(bass[curr_note].second, 4, i) * (gate(2,i) ? gate(8,i) : 1) +
 			              inst_bass(bass[curr_note].second, i) +
 						  white_wave(0,i) * (gate(8,i) & gate(16,i))) / 2.5;*/
-		float freq = get_freq(bass[curr_note].second,0,4);
-		int t = i%SAMPLE_RATE+10000;
-		wave_buffer[i] = sine_wave(freq+(sine_wave(3*freq+(sine_wave(1.25*freq, t)/float(MAX_AMP)), t)/float(MAX_AMP)), t) * (gate(2,i) ? gate(8,i) : 1);
+		in_buffer[i] = inst_fm_bass(bass[curr_note].second, 2, i-bass[curr_note].first);
 	}
 
-	/*for (int i = 0; i < buf_size; i++) {
-		if (i < 2) continue;
-		else wave_buffer[i] = low_pass(wave_buffer[i], wave_buffer[i-1], ((i < 88200) ? sqrtf(abs(88200-i)/88200.0) : powf((i-88200)/88200.0,2))) + 0.01;
-	}*/
+	LowPassFilter LPF(2000,1/sqrt(2.0f));
+
+	for (int i = 0; i < buf_size; i++) {
+		if (i < 2) wave_buffer[i] = in_buffer[i];
+		else wave_buffer[i] = clamp(LPF.filter(in_buffer[i], in_buffer[i-1], in_buffer[i-2], wave_buffer[i-1], wave_buffer[i-2]),-MAX_AMP,MAX_AMP);
+	}
 
 	write_wav("temp.wav", buf_size, wave_buffer, SAMPLE_RATE);
 	

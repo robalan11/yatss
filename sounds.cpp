@@ -65,12 +65,6 @@ int brown_wave(float freq, int i)
  * Filters
  */
 
-int low_pass(int samp, int prev, float weight)
-{
-	weight = powf(weight,3);
-	return weight * samp + ( 1.0 - weight ) * prev;
-}
-
 int gate(int freq, int i)
 {
 	return (SR - (i * freq)%SR) / (SR>>1);
@@ -102,4 +96,11 @@ int inst_hum(char note, int octave, int i)
 int inst_dial_tone(char note, int octave, int i)
 {
 	return (sine_wave(get_freq(note, 0, octave),i) + sine_wave((35.0/44.0)*get_freq(note, 0, octave),i))/2;
+}
+
+int inst_fm_bass(char note, int octave, int i)
+{
+	float freq = get_freq(note,0,octave+2);
+	int t = i+20000;
+	return sine_wave(freq+(0.3*sine_wave(3*freq+(sine_wave(1.25*freq, t)/float(MAX_AMP)), t)/float(MAX_AMP)), t) * (gate(2,i) ? gate(8,i) : 1);
 }

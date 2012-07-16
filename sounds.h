@@ -36,3 +36,4 @@ int inst_bass(char note, int i);
 int inst_trance(char note, int octave, int i);
 int inst_hum(char note, int octave, int i);
 int inst_dial_tone(char note, int octave, int i);
+int inst_fm_bass(char note, int octave, int i);
