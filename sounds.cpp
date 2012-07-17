@@ -2,6 +2,7 @@
 #include <math.h>
 
 #include "definitions.h"
+#include "filter.h"
 #include "utilities.h"
 #include "sounds.h"
 
@@ -101,6 +102,55 @@ int inst_dial_tone(char note, int octave, int i)
 int inst_fm_bass(char note, int octave, int i)
 {
 	float freq = get_freq(note,0,octave+2);
-	int t = i+20000;
-	return sine_wave(freq+(0.3*sine_wave(3*freq+(sine_wave(1.25*freq, t)/float(MAX_AMP)), t)/float(MAX_AMP)), t) * (gate(2,i) ? gate(8,i) : 1);
+	int t = i+60000;
+	return sine_wave(freq+(0.1*sine_wave(3*freq+(sine_wave(1.25*freq, t)/float(MAX_AMP)), t)/float(MAX_AMP)), t) * (gate(2,i) ? gate(8,i) : 1);
+}
+
+int pluck_in_1 = 0.0;
+int pluck_in_2 = 0.0;
+int pluck_out_1 = 0.0;
+int pluck_out_2 = 0.0;
+
+int inst_pluck(char note, int octave, int i)
+{
+	float falloff = pow(max((SAMPLE_RATE/2-i)/(SAMPLE_RATE/2.0),0),2);
+	LowPassFilter PluckLPF(3000*falloff,1.0f/sqrt(2.0f));
+	float freq = get_freq(note,0,octave);
+	int base = saw_wave(freq,i);
+	int env = base*falloff;
+	int lowpass = PluckLPF.filter(env, pluck_in_1, pluck_in_2, pluck_out_1, pluck_out_2);
+	pluck_in_2 = pluck_in_1; pluck_in_1 = env;
+	pluck_out_2 = pluck_out_1; pluck_out_1 = lowpass;
+	return lowpass;
+}
+
+int inst_ks_pluck(char note, int octave, int i, int j, short* buffer) // Karplus–Strong Algorithm
+{
+	float freq = get_freq(note,0,octave);
+	int wavelength = SAMPLE_RATE/freq;
+	if (j < wavelength) return white_wave(0,i);
+	else {
+		return 0.5*(buffer[i-wavelength]+buffer[i-wavelength+1]);
+	}
+}
+
+bool crack_on = false;
+int crack_start;
+int crack_amp;
+
+int inst_fire(char note, int octave, int i)
+{
+	if (crack_on) {
+		if (i-crack_start > 500) crack_on = false;
+		return crack_amp*white_noise()*pow(1-(0.002*(i-crack_start)),2);
+	} else {
+	
+		if (white_noise() > 0.9999) {
+			crack_on = true;
+			crack_amp = MAX_AMP * white_noise();
+			crack_start = i;
+		}
+
+		return 0;
+	}
 }

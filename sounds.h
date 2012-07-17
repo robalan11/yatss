@@ -37,3 +37,6 @@ int inst_trance(char note, int octave, int i);
 int inst_hum(char note, int octave, int i);
 int inst_dial_tone(char note, int octave, int i);
 int inst_fm_bass(char note, int octave, int i);
+int inst_pluck(char note, int octave, int i);
+int inst_ks_pluck(char note, int octave, int i, int j, short* buffer);
+int inst_fire(char note, int octave, int i);

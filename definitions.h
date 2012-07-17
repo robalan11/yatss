@@ -6,4 +6,6 @@
 #define CHANNELS 1
 #define M_PI 3.1415926
 
-#define clamp(num,min,max) max(min(num,max),min)
+#define max(a,b) (((a) > (b)) ? (a) : (b))
+#define min(a,b) (((a) < (b)) ? (a) : (b))
+#define clamp(num,min_val,max_val) max(min((num),(max_val)),(min_val))

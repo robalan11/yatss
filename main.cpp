@@ -90,15 +90,18 @@ int main(int argc, char* argv[])
 	int curr_note = 0;
 	
 	for (int i = 0; i < buf_size; i++) {
-		if (i >= bass[curr_note+1].first) curr_note++;
+		if (i >= notes[curr_note+1].start) curr_note++;
 		//wave_buffer[i] = 0.5*square_wave(notes[curr_note].second,i) + 0.5*square_wave(notes2[curr_note].second,i);
 		/*wave_buffer[i] = (inst_trance(bass[curr_note].second, 4, i) * (gate(2,i) ? gate(8,i) : 1) +
 			              inst_bass(bass[curr_note].second, i) +
 						  white_wave(0,i) * (gate(8,i) & gate(16,i))) / 2.5;*/
-		in_buffer[i] = inst_fm_bass(bass[curr_note].second, 2, i-bass[curr_note].first);
+		//in_buffer[i] = inst_fm_bass(bass[curr_note].second, 1, i-bass[curr_note].first);
+		//in_buffer[i] = inst_pluck(notes[curr_note].note, notes[curr_note].octave, i-notes[curr_note].start);
+		//in_buffer[i] = inst_fire('A',0,i);
+		in_buffer[i] = inst_ks_pluck(notes[curr_note].note, notes[curr_note].octave, i, i-notes[curr_note].start, in_buffer);
 	}
 
-	LowPassFilter LPF(2000,1/sqrt(2.0f));
+	LowPassFilter LPF(5000,1/sqrt(2.0f));
 
 	for (int i = 0; i < buf_size; i++) {
 		if (i < 2) wave_buffer[i] = in_buffer[i];
