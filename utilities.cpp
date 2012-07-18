@@ -19,3 +19,23 @@ float get_freq(char note, int accidental, int octave)
 
 	return freq[index]*powf(2.0,float(octave));
 }
+
+int maximum(int num, int val) 
+{
+	return num > val ? num : val;
+}
+
+int minimum(int num, int val) 
+{
+	return num < val ? num : val;
+}
+
+int clamp(int num, int min_val, int max_val)
+{
+	return maximum(minimum(num, max_val), min_val);
+}
+
+int clamp(int num)
+{
+	return clamp(num, -MAX_AMP, MAX_AMP);
+}

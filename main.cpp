@@ -4,7 +4,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <map>
-#include <utility>
+#include <time.h>
 
 #include "definitions.h"
 #include "filter.h"
@@ -86,6 +86,8 @@ int main(int argc, char* argv[])
 	short int wave_buffer[buf_size];
 
 	init_song(buf_size);
+	
+	srand(time(NULL));
 
 	int curr_note = 0;
 	
@@ -96,16 +98,16 @@ int main(int argc, char* argv[])
 			              inst_bass(bass[curr_note].second, i) +
 						  white_wave(0,i) * (gate(8,i) & gate(16,i))) / 2.5;*/
 		//in_buffer[i] = inst_fm_bass(bass[curr_note].second, 1, i-bass[curr_note].first);
-		//in_buffer[i] = inst_pluck(notes[curr_note].note, notes[curr_note].octave, i-notes[curr_note].start);
-		//in_buffer[i] = inst_fire('A',0,i);
-		in_buffer[i] = inst_ks_pluck(notes[curr_note].note, notes[curr_note].octave, i, i-notes[curr_note].start, in_buffer);
+		//in_buffer[i] = inst_pluck(notes[curr_note].note, notes[curr_note].octave, i, i-notes[curr_note].start, in_buffer, wave_buffer);
+		in_buffer[i] = inst_fire(i);
+		//in_buffer[i] = inst_ks_pluck(notes[curr_note].note, notes[curr_note].octave, i, i-notes[curr_note].start, in_buffer);
+		//in_buffer[i] = inst_crickets(i, i%(SAMPLE_RATE/2));
 	}
 
-	LowPassFilter LPF(5000,1/sqrt(2.0f));
+	LowPassFilter LPF(30000,1.0f/sqrt(2.0f));
 
 	for (int i = 0; i < buf_size; i++) {
-		if (i < 2) wave_buffer[i] = in_buffer[i];
-		else wave_buffer[i] = clamp(LPF.filter(in_buffer[i], in_buffer[i-1], in_buffer[i-2], wave_buffer[i-1], wave_buffer[i-2]),-MAX_AMP,MAX_AMP);
+		wave_buffer[i] = in_buffer[i];//clamp(LPF.filter(in_buffer[i]), -MAX_AMP, MAX_AMP);
 	}
 
 	write_wav("temp.wav", buf_size, wave_buffer, SAMPLE_RATE);
