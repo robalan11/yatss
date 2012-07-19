@@ -1,6 +1,8 @@
 #define BLOCK_SIZE 8192
 #define BLOCK_COUNT 20
 #define SAMPLE_RATE 44100
+#define BUFFER_SIZE 44100
+#define SONG_LENGTH 44100*16
 #define SR SAMPLE_RATE
 #define MAX_AMP 32767
 #define CHANNELS 1

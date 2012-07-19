@@ -108,7 +108,7 @@ int inst_fm_bass(char note, int octave, int i)
 
 LowPassFilter PluckLPF(3000,1.0f/sqrt(2.0f));
 
-int inst_pluck(char note, int octave, int i, int j, short* in_buffer, short* out_buffer)
+int inst_pluck(char note, int octave, int i, int j)
 {
 	float falloff = powf(maximum((SAMPLE_RATE/2-j)/(SAMPLE_RATE/2.0),0),2);
 	float freq = get_freq(note,0,octave);
@@ -124,7 +124,8 @@ int inst_ks_pluck(char note, int octave, int i, int j, short* buffer) // Karplus
 	int wavelength = SAMPLE_RATE/freq;
 	if (j < wavelength) return brown_wave(freq,i);
 	else {
-		return 0.5*(buffer[i-wavelength]+buffer[i-wavelength+1]);
+		int samp = (i-wavelength)%BUFFER_SIZE;
+		return 0.5*(buffer[samp]+buffer[samp+1]);
 	}
 }
 
@@ -133,23 +134,29 @@ int crack_start;
 int crack_amp;
 LowPassFilter FlamesLPF(30,1.0f/sqrt(2.0f));
 HighPassFilter FlamesHPF(25,1.0f/sqrt(2.0f));
+LowPassFilter HissLPF(2,1.0f/sqrt(2.0f));
+HighPassFilter HissHPF(500,1.0f/sqrt(2.0f));
 
-int inst_fire(int i)
+int inst_fire(int i, short* buffer)
 {
 	float noise = white_noise();
+	float amp = HissLPF.filter(noise*MAX_AMP);
+	int hiss = clamp(HissHPF.filter(noise*amp*amp*0.01));
+	int flames = FlamesHPF.filter(clamp(FlamesLPF.filter(noise*MAX_AMP)*10))*4;
 	int crack = 0;
 	if (crack_on) {
 		if (i-crack_start > 500) crack_on = false;
-		crack = crack_amp*brown_noise()*pow(1-(0.002*(i-crack_start)),2);
+		if (i-crack_start < 4) crack = crack_amp;
+		else crack = crack_amp*brown_noise()*pow(1-(0.002*(i-crack_start)),2);
 	} else {
 	
 		if (noise > 0.99999) {
 			crack_on = true;
-			crack_amp = 4 * MAX_AMP * white_noise();
+			crack_amp = MAX_AMP * (0.5*abs(noise)+0.5);
 			crack_start = i;
 		}
 	}
-	return clamp(FlamesHPF.filter(clamp(FlamesLPF.filter(noise*MAX_AMP)*10))*3 + crack);
+	return clamp(flames + crack + hiss);
 }
 
 int inst_crickets(int i, int j)

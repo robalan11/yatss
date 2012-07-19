@@ -26,106 +26,41 @@ static WAVEHDR* waveBlocks;
 static volatile int waveFreeBlockCount;
 static int waveCurrentBlock;
 
-void write_wav(char * filename, unsigned long num_samples, short int * data, int s_rate)
+void fill_buffer(short* out_buffer, int t)
 {
-    FILE* wav_file;
-    unsigned int sample_rate;
-    unsigned int num_channels = CHANNELS;
-    unsigned int bytes_per_sample = 2;
-	unsigned short bits_per_sample = 8*bytes_per_sample;
-	unsigned short block_align = num_channels*bytes_per_sample;
-    unsigned int byte_rate;
-	unsigned int file_size = 36 + bytes_per_sample* num_samples*num_channels;
-	unsigned int data_size = bytes_per_sample * num_samples * num_channels;
-	unsigned int SubChunk1size = 16;
-	unsigned short PCM_format = 1;
-    unsigned long i;    /* counter for samples */
-  
-    if (s_rate<=0) sample_rate = SAMPLE_RATE;
-    else sample_rate = (unsigned int) s_rate;
- 
-    byte_rate = sample_rate*num_channels*bytes_per_sample;
- 
-    wav_file = fopen(filename, "wb");
- 
-    /* write RIFF header */
-    fwrite("RIFF", 1, 4, wav_file);
-    fwrite(&file_size, 4, 1, wav_file);
-    fwrite("WAVE", 1, 4, wav_file);
- 
-    /* write fmt  subchunk */
-    fwrite("fmt ", 1, 4, wav_file);
-    fwrite(&SubChunk1size, 4, 1, wav_file);
-    fwrite(&PCM_format, 2, 1, wav_file);
-    fwrite(&num_channels, 2, 1, wav_file);
-    fwrite(&sample_rate, 4, 1, wav_file);
-    fwrite(&byte_rate, 4, 1, wav_file);
-    fwrite(&bits_per_sample, 2, 1, wav_file);  /* block align */
-    fwrite(&bits_per_sample, 2, 1, wav_file);
- 
-    /* write data subchunk */
-    fwrite("data", 1, 4, wav_file);
-    fwrite(&data_size, 4, 1, wav_file);
-    for (i=0; i< num_samples; i++)
-		fwrite(&(data[i]), bytes_per_sample, 1, wav_file);
- 
-    fclose(wav_file);
+	short in_buffer[BUFFER_SIZE];
+
+	int curr_note = 0;
+	
+	for (int i = 0; i < BUFFER_SIZE; i++) {
+		if (i+t > SONG_LENGTH) break;
+		if (i+t >= notes[curr_note+1].start) curr_note++;
+		/*in_buffer[i] = (inst_trance(notes[curr_note].note, 4, i+t) * (gate(2,i+t) ? gate(8,i+t) : 1) +
+			              inst_bass(notes[curr_note].note, i+t) +
+						  white_wave(0,i+t) * (gate(8,i+t) & gate(16,i+t))) / 2.5;*/
+		//in_buffer[i] = inst_fm_bass(notes[curr_note].note, notes[curr_note].octave, i-bass[curr_note].start);
+		//in_buffer[i] = inst_pluck(notes[curr_note].note, notes[curr_note].octave, i, i-notes[curr_note].start);
+		in_buffer[i] = inst_fire(i+t, in_buffer);
+		//in_buffer[i] = inst_ks_pluck(notes[curr_note].note, notes[curr_note].octave, i+t, i+t-notes[curr_note].start, in_buffer);
+		//in_buffer[i] = inst_crickets(i+t, (i+t)%(SAMPLE_RATE/2));
+	}
+
+	LowPassFilter LPF(30000,1.0f/sqrt(2.0f));
+
+	for (int i = 0; i < BUFFER_SIZE; i++) {
+		out_buffer[i] = in_buffer[i];//clamp(LPF.filter(in_buffer[i]));
+	}
 }
 
 int main(int argc, char* argv[])
 {
 	HWAVEOUT hWaveOut; /* device handle */
-	HANDLE hFile;/* file handle */
 	WAVEFORMATEX wfx; /* look this up in your documentation */
 	char buffer[1024]; /* intermediate buffer for reading */
 	int i;
-	
-	const int buf_size = SAMPLE_RATE*4;
 
-	short int in_buffer[buf_size];
-	short int wave_buffer[buf_size];
+	short *out_buffer = new short[BUFFER_SIZE];
 
-	init_song(buf_size);
-	
-	srand(time(NULL));
-
-	int curr_note = 0;
-	
-	for (int i = 0; i < buf_size; i++) {
-		if (i >= notes[curr_note+1].start) curr_note++;
-		//wave_buffer[i] = 0.5*square_wave(notes[curr_note].second,i) + 0.5*square_wave(notes2[curr_note].second,i);
-		/*wave_buffer[i] = (inst_trance(bass[curr_note].second, 4, i) * (gate(2,i) ? gate(8,i) : 1) +
-			              inst_bass(bass[curr_note].second, i) +
-						  white_wave(0,i) * (gate(8,i) & gate(16,i))) / 2.5;*/
-		//in_buffer[i] = inst_fm_bass(bass[curr_note].second, 1, i-bass[curr_note].first);
-		//in_buffer[i] = inst_pluck(notes[curr_note].note, notes[curr_note].octave, i, i-notes[curr_note].start, in_buffer, wave_buffer);
-		in_buffer[i] = inst_fire(i);
-		//in_buffer[i] = inst_ks_pluck(notes[curr_note].note, notes[curr_note].octave, i, i-notes[curr_note].start, in_buffer);
-		//in_buffer[i] = inst_crickets(i, i%(SAMPLE_RATE/2));
-	}
-
-	LowPassFilter LPF(30000,1.0f/sqrt(2.0f));
-
-	for (int i = 0; i < buf_size; i++) {
-		wave_buffer[i] = in_buffer[i];//clamp(LPF.filter(in_buffer[i]), -MAX_AMP, MAX_AMP);
-	}
-
-	write_wav("temp.wav", buf_size, wave_buffer, SAMPLE_RATE);
-	
-	/*
-	 * initialise the module variables
-	 */ 
-	waveBlocks = allocateBlocks(BLOCK_SIZE, BLOCK_COUNT);
-	waveFreeBlockCount = BLOCK_COUNT;
-	waveCurrentBlock= 0;
-	InitializeCriticalSection(&waveCriticalSection);
-	/*
-	 * try and open the file
-	 */ 
-	if((hFile = CreateFile(L"temp.wav", GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL)) == INVALID_HANDLE_VALUE) {
-		fprintf(stderr, "%s: unable to open file '%s': %d\n", argv[0], argv[1], GetLastError());
-		ExitProcess(1);
-	}
 	/*
 	 * set up the WAVEFORMATEX structure.
 	 */
@@ -136,6 +71,21 @@ int main(int argc, char* argv[])
 	wfx.wFormatTag = WAVE_FORMAT_PCM;
 	wfx.nBlockAlign = (wfx.wBitsPerSample * wfx.nChannels) >> 3;
 	wfx.nAvgBytesPerSec = wfx.nBlockAlign * wfx.nSamplesPerSec;
+
+	init_scale();
+	init_song(SONG_LENGTH);
+	
+	srand(time(NULL));
+	
+	fill_buffer(out_buffer, 0);
+
+	/*
+	 * initialise the module variables
+	 */ 
+	waveBlocks = allocateBlocks(BLOCK_SIZE, BLOCK_COUNT);
+	waveFreeBlockCount = BLOCK_COUNT;
+	waveCurrentBlock= 0;
+	InitializeCriticalSection(&waveCriticalSection);
 	/*
 	 * try to open the default wave device. WAVE_MAPPER is
 	 * a constant defined in mmsystem.h, it always points to the
@@ -149,17 +99,27 @@ int main(int argc, char* argv[])
 	/*
 	 * playback loop
 	 */
+	int buf_pos = 0;
+	int cycles = 0;
+	short readBytes = 0;
+	int buf_rem;
 	while(1) {
-		DWORD readBytes;
-		if(!ReadFile(hFile, buffer, sizeof(buffer), &readBytes, NULL))
-			break;
-		if(readBytes == 0)
-			break;
-		if(readBytes < sizeof(buffer)) {
-			printf("at end of buffer\n");
-			memset(buffer + readBytes, 0, sizeof(buffer) - readBytes);
-			printf("after memcpy\n");
+		buf_rem = 2*(BUFFER_SIZE-buf_pos);
+		if(buf_rem <= 1024)
+		{
+			cycles++;
+			if (BUFFER_SIZE*cycles > SONG_LENGTH) break; // song's over!
+			memcpy(buffer, out_buffer+buf_pos, buf_rem);
+			fill_buffer(out_buffer, BUFFER_SIZE*cycles);
+			readBytes = 1024-buf_rem;
+			memcpy(buffer+buf_rem, out_buffer, readBytes);
+			buf_pos = 0;
+		} else {
+			readBytes = 1024;
+			memcpy(buffer, out_buffer+buf_pos, readBytes);
 		}
+		buf_pos += readBytes/2; // divide by 2 to convert from bytes to shorts
+
 		writeAudio(hWaveOut, buffer, sizeof(buffer));
 	}
 	/*
@@ -176,7 +136,6 @@ int main(int argc, char* argv[])
 	DeleteCriticalSection(&waveCriticalSection);
 	freeBlocks(waveBlocks);
 	waveOutClose(hWaveOut);
-	CloseHandle(hFile);
 	return 0;
 }
 
