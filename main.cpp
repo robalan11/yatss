@@ -26,29 +26,39 @@ static WAVEHDR* waveBlocks;
 static volatile int waveFreeBlockCount;
 static int waveCurrentBlock;
 
-void fill_buffer(short* out_buffer, int t)
-{
-	short in_buffer[BUFFER_SIZE];
+LowPassFilter LPF(10000,1.0f/sqrt(2.0f));
+short in_buffer[BUFFER_SIZE];
+short in_buffer2[BUFFER_SIZE];
+short in_buffer3[BUFFER_SIZE];
 
-	int curr_note = 0;
-	
+void fill_buffer(short* out_buffer, int t)
+{	
 	for (int i = 0; i < BUFFER_SIZE; i++) {
+		static int curr_note = 0;
+		static int curr_note2 = 0;
+		static int curr_note3 = 0;
 		if (i+t > SONG_LENGTH) break;
 		if (i+t >= notes[curr_note+1].start) curr_note++;
+		if (i+t >= notes2[curr_note2+1].start) curr_note2++;
+		if (i+t >= notes3[curr_note3+1].start) curr_note3++;
 		/*in_buffer[i] = (inst_trance(notes[curr_note].note, 4, i+t) * (gate(2,i+t) ? gate(8,i+t) : 1) +
 			              inst_bass(notes[curr_note].note, i+t) +
 						  white_wave(0,i+t) * (gate(8,i+t) & gate(16,i+t))) / 2.5;*/
 		//in_buffer[i] = inst_fm_bass(notes[curr_note].note, notes[curr_note].octave, i-bass[curr_note].start);
 		//in_buffer[i] = inst_pluck(notes[curr_note].note, notes[curr_note].octave, i, i-notes[curr_note].start);
-		in_buffer[i] = inst_fire(i+t, in_buffer);
-		//in_buffer[i] = inst_ks_pluck(notes[curr_note].note, notes[curr_note].octave, i+t, i+t-notes[curr_note].start, in_buffer);
+		//in_buffer[i] = inst_fire(i+t);
+		in_buffer[i] = inst_ks_pluck(notes[curr_note].note, notes[curr_note].octave, i+t, i+t-notes[curr_note].start, in_buffer);
+		//in_buffer2[i] = inst_ks_pluck2(notes2[curr_note2].note, notes2[curr_note2].octave, i+t, i+t-notes2[curr_note2].start, in_buffer2);
+		//in_buffer3[i] = inst_ks_pluck3(notes3[curr_note3].note, notes3[curr_note3].octave, i+t, i+t-notes3[curr_note3].start, in_buffer3);
 		//in_buffer[i] = inst_crickets(i+t, (i+t)%(SAMPLE_RATE/2));
+		//in_buffer[i] = inst_flute(notes[curr_note].note, notes[curr_note].octave, i+t, i+t-notes[curr_note].start);
+		/*Env_Point values[4];
+		values[0].init(0,1.0); values[1].init(2000,1.0); values[2].init(0.7*SR, 0.1); values[3].init(0.75*SR, 0.0);
+		in_buffer[i] = inst_bell(notes[curr_note].note, notes[curr_note].octave, i+t, i+t-notes[curr_note].start, values, 4);*/
 	}
 
-	LowPassFilter LPF(30000,1.0f/sqrt(2.0f));
-
 	for (int i = 0; i < BUFFER_SIZE; i++) {
-		out_buffer[i] = in_buffer[i];//clamp(LPF.filter(in_buffer[i]));
+		out_buffer[i] = clamp(LPF.filter(0.9*in_buffer[i] + 0.6*in_buffer2[i] + in_buffer3[i]));
 	}
 }
 
@@ -110,6 +120,9 @@ int main(int argc, char* argv[])
 			cycles++;
 			if (BUFFER_SIZE*cycles > SONG_LENGTH) break; // song's over!
 			memcpy(buffer, out_buffer+buf_pos, buf_rem);
+			/*char filename[6];
+			sprintf(filename, "%d.wav", cycles);
+			write_wav(filename, BUFFER_SIZE, out_buffer, SAMPLE_RATE);*/
 			fill_buffer(out_buffer, BUFFER_SIZE*cycles);
 			readBytes = 1024-buf_rem;
 			memcpy(buffer+buf_rem, out_buffer, readBytes);

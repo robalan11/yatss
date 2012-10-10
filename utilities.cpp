@@ -44,6 +44,11 @@ int clamp(int num)
 	return clamp(num, -MAX_AMP, MAX_AMP);
 }
 
+float clamp(float num, float min_val, float max_val)
+{
+	return num < min_val ? min_val : num > max_val ? max_val : num;
+}
+
 
 
 
