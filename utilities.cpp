@@ -1,4 +1,6 @@
 #include "utilities.h"
+#include <stdio.h>
+#include <math.h>
 
 int sign(int num) { return (num >= 0) ? 1 : -1; }
 

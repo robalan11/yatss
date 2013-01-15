@@ -13,7 +13,7 @@
 #include "sounds.h"
 /*
  * function prototypes
- */ 
+ */
 static void CALLBACK waveOutProc(HWAVEOUT, UINT, DWORD, DWORD, DWORD);
 static WAVEHDR* allocateBlocks(int size, int count);
 static void freeBlocks(WAVEHDR* blockArray);
@@ -31,9 +31,32 @@ short in_buffer[BUFFER_SIZE];
 short in_buffer2[BUFFER_SIZE];
 short in_buffer3[BUFFER_SIZE];
 
+void sample(short *buf, struct song *s, const int samp, const int t)
+{
+	int i;
+    int used_channels;
+	short smpl;
+
+	for (i = 0, used_channels = 0; (s->notes[i].note != '\0') && (used_channels < s->channels); i++) {
+		if ((t > s->notes[i].start) && (t < (s->notes[i].start + SR))) {
+			smpl = inst_ks_pluck(s->notes[i].note, s->notes[i].octave, t, t - s->notes[i].start, s->note_bufs[used_channels]);
+			s->note_bufs[used_channels][samp] = smpl;
+			used_channels++;
+		}
+	}
+	buf[samp] = 0;
+	for (i = 0; i < used_channels; i++) {
+		buf[samp] += s->note_bufs[i][samp] / s->channels * 2;
+	}
+}
+
 void fill_buffer(short* out_buffer, int t)
-{	
+{
+printf("filling buffer, t=%i\n", t);
+for(int i = 0; i < song1->channels; i++)
+	memset(song1->note_bufs[i], 0, BUFFER_SIZE * sizeof(short));
 	for (int i = 0; i < BUFFER_SIZE; i++) {
+/*
 		static int curr_note = 0;
 		static int curr_note2 = 0;
 		static int curr_note3 = 0;
@@ -41,15 +64,17 @@ void fill_buffer(short* out_buffer, int t)
 		if (i+t >= notes[curr_note+1].start) curr_note++;
 		if (i+t >= notes2[curr_note2+1].start) curr_note2++;
 		if (i+t >= notes3[curr_note3+1].start) curr_note3++;
+*/
 		/*in_buffer[i] = (inst_trance(notes[curr_note].note, 4, i+t) * (gate(2,i+t) ? gate(8,i+t) : 1) +
 			              inst_bass(notes[curr_note].note, i+t) +
 						  white_wave(0,i+t) * (gate(8,i+t) & gate(16,i+t))) / 2.5;*/
 		//in_buffer[i] = inst_fm_bass(notes[curr_note].note, notes[curr_note].octave, i-bass[curr_note].start);
 		//in_buffer[i] = inst_pluck(notes[curr_note].note, notes[curr_note].octave, i, i-notes[curr_note].start);
 		//in_buffer[i] = inst_fire(i+t);
-		in_buffer[i] = inst_ks_pluck(notes[curr_note].note, notes[curr_note].octave, i+t, i+t-notes[curr_note].start, in_buffer);
-		//in_buffer2[i] = inst_ks_pluck2(notes2[curr_note2].note, notes2[curr_note2].octave, i+t, i+t-notes2[curr_note2].start, in_buffer2);
-		//in_buffer3[i] = inst_ks_pluck3(notes3[curr_note3].note, notes3[curr_note3].octave, i+t, i+t-notes3[curr_note3].start, in_buffer3);
+		//in_buffer[i] = inst_ks_pluck(notes[curr_note].note, notes[curr_note].octave, i+t, i+t-notes[curr_note].start, in_buffer);
+		sample(in_buffer, song1, i, i + t);
+		//in_buffer2[i] = inst_ks_pluck(notes2[curr_note2].note, notes2[curr_note2].octave, i+t, i+t-notes2[curr_note2].start, in_buffer2);
+		//in_buffer3[i] = inst_ks_pluck(notes3[curr_note3].note, notes3[curr_note3].octave, i+t, i+t-notes3[curr_note3].start, in_buffer3);
 		//in_buffer[i] = inst_crickets(i+t, (i+t)%(SAMPLE_RATE/2));
 		//in_buffer[i] = inst_flute(notes[curr_note].note, notes[curr_note].octave, i+t, i+t-notes[curr_note].start);
 		/*Env_Point values[4];
@@ -84,14 +109,14 @@ int main(int argc, char* argv[])
 
 	init_scale();
 	init_song(SONG_LENGTH);
-	
+
 	srand(time(NULL));
-	
+
 	fill_buffer(out_buffer, 0);
 
 	/*
 	 * initialise the module variables
-	 */ 
+	 */
 	waveBlocks = allocateBlocks(BLOCK_SIZE, BLOCK_COUNT);
 	waveFreeBlockCount = BLOCK_COUNT;
 	waveCurrentBlock= 0;
@@ -143,7 +168,7 @@ int main(int argc, char* argv[])
 	/*
 	 * unprepare any blocks that are still prepared
 	 */
-	for(i = 0; i < waveFreeBlockCount; i++) 
+	for(i = 0; i < waveFreeBlockCount; i++)
 		if(waveBlocks[i].dwFlags & WHDR_PREPARED)
 			waveOutUnprepareHeader(hWaveOut, &waveBlocks[i], sizeof(WAVEHDR));
 	DeleteCriticalSection(&waveCriticalSection);
@@ -197,9 +222,9 @@ WAVEHDR* allocateBlocks(int size, int count)
 
 void freeBlocks(WAVEHDR* blockArray)
 {
-	/* 
+	/*
 	 * and this is why allocateBlocks works the way it does
-	 */ 
+	 */
 	HeapFree(GetProcessHeap(), 0, blockArray);
 }
 
@@ -209,10 +234,10 @@ void writeAudio(HWAVEOUT hWaveOut, LPSTR data, int size)
 	int remain;
 	current = &waveBlocks[waveCurrentBlock];
 	while(size > 0) {
-	/* 
+	/*
 	 * first make sure the header we're going to use is unprepared
 	 */
-	if(current->dwFlags & WHDR_PREPARED) 
+	if(current->dwFlags & WHDR_PREPARED)
 		waveOutUnprepareHeader(hWaveOut, current, sizeof(WAVEHDR));
 	if(size < (int)(BLOCK_SIZE - current->dwUser)) {
 		memcpy(current->lpData + current->dwUser, data, size);
